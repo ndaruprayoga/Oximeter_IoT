@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oximeter Hub - Firebase Realtime</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#0b0f19',
+                        darkCard: '#131b2e',
+                        darkCardHeader: '#1a243b',
+                        accentPurple: '#7c3aed',
+                        accentCyan: '#06b6d4',
+                        accentGreen: '#10b981',
+                        accentRed: '#ef4444'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase JS SDK v10 (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-darkBg text-gray-200 font-sans min-h-screen flex flex-col selection:bg-accentPurple selection:text-white">
+
+    <!-- Header Navigation -->
+    <header class="bg-darkCard border-b border-gray-800 px-6 py-3.5 flex items-center justify-between sticky top-0 z-40 shadow-lg">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-accentPurple/20 border border-accentPurple/40 flex items-center justify-center text-accentPurple text-xl shadow-inner">
+                <i class="fa-solid fa-heart-pulse animate-pulse"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg text-white tracking-wide flex items-center gap-2">
+                    Oximeter Hub
+                    <span id="firebaseStatusBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 font-semibold">Menghubungkan...</span>
+                </h1>
+                <p class="text-xs text-gray-400">Sistem Pemantauan Saturasi Oksigen & Detak Jantung Pasien</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2.5 bg-gray-800/50 px-3 py-1.5 rounded-lg border border-gray-700/50">
+                <div class="w-7 h-7 rounded-full bg-accentPurple flex items-center justify-center text-xs font-bold text-white shadow">DR</div>
+                <div class="text-left hidden sm:block">
+                    <div class="text-xs font-semibold text-white leading-tight">Dr. Ladesh</div>
+                    <div class="text-[10px] text-gray-400">Dokter Penanggung Jawab</div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
+
+        <!-- Action Header -->
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+                <h2 class="text-2xl font-bold text-white tracking-tight">Daftar Pasien</h2>
+                <p class="text-xs text-gray-400">Pilih pasien untuk membuka profil dan mengaktifkan pengukuran pada alat ESP32</p>
+            </div>
+
+            <div class="flex items-center gap-3 w-full sm:w-auto">
+                <div class="px-3.5 py-2 rounded-xl bg-darkCard border border-gray-800 flex items-center gap-2 text-xs">
+                    <span class="text-gray-400">Total Pasien</span>
+                    <span id="statTotalPatients" class="font-bold text-white px-2 py-0.5 rounded bg-gray-800 text-sm">0</span>
+                </div>
+                <button onclick="openRegisterModal()" class="flex-1 sm:flex-initial px-4 py-2 bg-accentPurple hover:bg-purple-600 text-white rounded-xl text-xs font-semibold shadow-lg shadow-accentPurple/25 transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <span>Registrasi Pasien Baru</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Tabel Pasien Utama -->
+        <div class="bg-darkCard border border-gray-800/80 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div class="relative w-full sm:w-72">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-xs"></i>
+                    <input type="text" id="searchInput" oninput="renderPatientTable()" placeholder="Cari nama atau no. hp pasien..." class="w-full bg-gray-900 border border-gray-800 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-accentPurple transition">
+                </div>
+            </div>
+
+            <!-- Patient Table -->
+            <div class="overflow-x-auto rounded-xl border border-gray-800">
+                <table class="w-full text-left text-xs text-gray-300">
+                    <thead class="bg-darkCardHeader/80 text-gray-400 uppercase text-[10px] tracking-wider border-b border-gray-800 font-bold">
+                        <tr>
+                            <th scope="col" class="p-3.5">NAMA PASIEN</th>
+                            <th scope="col" class="p-3.5">NOMOR HP / WA</th>
+                            <th scope="col" class="p-3.5">UMUR / JK</th>
+                            <th scope="col" class="p-3.5">KATEGORI</th>
+                            <th scope="col" class="p-3.5 text-center">RATA-RATA HARI INI (SpO2)</th>
+                            <th scope="col" class="p-3.5 text-center">RATA-RATA HARI INI (BPM)</th>
+                            <th scope="col" class="p-3.5 text-center">AKSI</th>
+                        </tr>
+                    </thead>
+                    <tbody id="patientTableBody" class="divide-y divide-gray-800/60 bg-darkCard/40">
+                        <tr>
+                            <td colspan="7" class="text-center py-8 text-gray-500">
+                                <i class="fa-solid fa-spinner animate-spin text-xl mb-2"></i>
+                                <p>Memuat data pasien dari Firebase...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Registrasi Pasien Baru -->
+    <div id="registerModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-darkCard border border-gray-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-user-plus text-accentPurple"></i>
+                    <span>Registrasi Pasien Baru</span>
+                </h3>
+                <button onclick="closeRegisterModal()" class="text-gray-400 hover:text-white transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <form id="registerForm" onsubmit="handleRegisterPatient(event)" class="space-y-3.5 text-xs">
+                <div>
+                    <label class="block text-gray-400 font-medium mb-1">Nama Lengkap Pasien *</label>
+                    <input type="text" id="regName" required placeholder="Contoh: Budi Santoso" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-accentPurple transition">
+                </div>
+
+                <div>
+                    <label class="block text-gray-400 font-medium mb-1">Nomor HP / WhatsApp *</label>
+                    <input type="text" id="regPhone" required placeholder="Contoh: 081234567890" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-accentPurple transition">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-gray-400 font-medium mb-1">Umur (Tahun) *</label>
+                        <input type="number" id="regAge" required min="1" max="120" placeholder="48" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-accentPurple transition">
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 font-medium mb-1">Jenis Kelamin *</label>
+                        <select id="regGender" required class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-accentPurple transition">
+                            <option value="L">Laki-Laki (L)</option>
+                            <option value="P">Perempuan (P)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-gray-400 font-medium mb-1">Kategori Pasien</label>
+                    <select id="regCategory" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-accentPurple transition">
+                        <option value="Rawat Inap">Rawat Inap</option>
+                        <option value="Rawat Jalan">Rawat Jalan</option>
+                        <option value="ICU / Kritis">ICU / Kritis</option>
+                        <option value="Umum">Umum</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-3 border-t border-gray-800">
+                    <button type="button" onclick="closeRegisterModal()" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl font-medium transition">Batal</button>
+                    <button type="submit" id="btnSubmitReg" class="px-4 py-2 bg-accentPurple hover:bg-purple-600 text-white rounded-xl font-semibold flex items-center gap-1.5 transition shadow-lg shadow-accentPurple/25">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>Simpan Pasien</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Profile & Realtime Monitoring Pasien -->
+    <div id="profileModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-6 hidden overflow-y-auto">
+        <div class="bg-darkCard border border-gray-800 rounded-2xl w-full max-w-5xl p-5 shadow-2xl space-y-5 my-auto">
+            
+            <!-- Header Modal Pasien -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-800 pb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-accentPurple/20 border border-accentPurple/40 flex items-center justify-center text-accentPurple text-lg font-bold">
+                        <span id="profAvatar">B</span>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 id="profName" class="text-lg font-bold text-white">Budi Santoso</h3>
+                            <span id="profPhoneBadge" class="px-2 py-0.5 rounded bg-gray-800 text-accentCyan border border-accentCyan/30 text-[10px] font-mono">081234567890</span>
+                        </div>
+                        <p id="profMeta" class="text-xs text-gray-400">Umur: 48 Thn | JK: L | Kategori: Rawat Jalan</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <span id="liveFingerBadge" class="px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/30 text-xs font-semibold">
+                        Tempelkan Jari Anda pada Sensor!
+                    </span>
+                    <button onclick="closeProfileModal()" class="w-8 h-8 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-xl text-xs flex items-center justify-center transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Realtime Indicator Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- SpO2 Realtime Card -->
+                <div class="bg-gray-900/90 border border-gray-800 rounded-2xl p-4 flex flex-col items-center justify-center relative">
+                    <span class="text-xs font-bold text-emerald-400 tracking-wider uppercase mb-1">Realtime SpO2</span>
+                    <div class="text-5xl font-extrabold text-white my-1">
+                        <span id="liveSpo2Val">0</span> <span class="text-base text-emerald-400">%</span>
+                    </div>
+                </div>
+
+                <!-- BPM Realtime Card -->
+                <div class="bg-gray-900/90 border border-gray-800 rounded-2xl p-4 flex flex-col items-center justify-center relative">
+                    <span class="text-xs font-bold text-accentCyan tracking-wider uppercase mb-1">Realtime BPM</span>
+                    <div class="text-5xl font-extrabold text-white my-1">
+                        <span id="liveBpmVal">0</span> <span class="text-base text-accentCyan">BPM</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grafik Rata-Rata Per Hari -->
+            <div class="bg-gray-900/90 border border-gray-800 rounded-2xl p-4 space-y-2">
+                <div class="flex items-center justify-between text-xs">
+                    <span class="font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-accentPurple"></i>
+                        Grafik Rata-Rata Pengukuran Per Hari
+                    </span>
+                    <span class="text-[10px] text-gray-400">Diperbarui otomatis dari sesi harian</span>
+                </div>
+                <div class="h-48 w-full">
+                    <canvas id="dailyChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Daftar List Riwayat Rata-Rata Per Hari -->
+            <div class="bg-gray-900/90 border border-gray-800 rounded-2xl p-4 space-y-3">
+                <h4 class="text-xs font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-list-check text-accentCyan"></i>
+                    Daftar Riwayat Rata-Rata Per Hari
+                </h4>
+                <div class="overflow-x-auto rounded-xl border border-gray-800 max-h-48">
+                    <table class="w-full text-left text-xs text-gray-300">
+                        <thead class="bg-gray-950 text-gray-400 uppercase text-[10px] sticky top-0">
+                            <tr>
+                                <th class="p-2.5">TANGGAL</th>
+                                <th class="p-2.5 text-center">RATA-RATA SPO2</th>
+                                <th class="p-2.5 text-center">RATA-RATA BPM</th>
+                                <th class="p-2.5 text-center">TOTAL SAMPEL</th>
+                                <th class="p-2.5 text-center">STATUS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dailyHistoryTableBody" class="divide-y divide-gray-800">
+                            <!-- Injected by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        /* CONFIG & STATE */
+        let firebaseConfig = {
+            apiKey: localStorage.getItem('fb_apiKey') || "AIzaSy_YOUR_API_KEY",
+            databaseURL: localStorage.getItem('fb_dbUrl') || "https://lexshin-project-default-rtdb.asia-southeast1.firebasedatabase.app"
+        };
+
+        let db = null;
+        let patientsList = [];
+        let activePatient = null;
+        let dailyChartInstance = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initFirebase();
+            initChart();
+        });
+
+        function openConfigModal() {
+            document.getElementById('cfgDbUrl').value = firebaseConfig.databaseURL;
+            document.getElementById('cfgApiKey').value = firebaseConfig.apiKey;
+            document.getElementById('configModal').classList.remove('hidden');
+        }
+
+        function closeConfigModal() {
+            document.getElementById('configModal').classList.add('hidden');
+        }
+
+        function saveFirebaseConfig() {
+            const url = document.getElementById('cfgDbUrl').value.trim();
+            const key = document.getElementById('cfgApiKey').value.trim();
+
+            if (url) localStorage.setItem('fb_dbUrl', url);
+            if (key) localStorage.setItem('fb_apiKey', key);
+
+            location.reload();
+        }
+
+        function initFirebase() {
+            try {
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                db = firebase.database();
+
+                const statusBadge = document.getElementById('firebaseStatusBadge');
+                statusBadge.className = "text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-semibold";
+                statusBadge.innerText = "Firebase Terhubung";
+
+                listenPatients();
+                listenLiveReadings();
+            } catch (err) {
+                console.error("Firebase Init Error:", err);
+            }
+        }
+
+        /* REGISTRASI PASIEN BARU */
+        function openRegisterModal() {
+            document.getElementById('registerModal').classList.remove('hidden');
+        }
+
+        function closeRegisterModal() {
+            document.getElementById('registerModal').classList.add('hidden');
+        }
+
+        async function handleRegisterPatient(e) {
+            e.preventDefault();
+            if (!db) return alert("Firebase belum dikonfigurasi!");
+
+            const id = 'PST-' + Date.now().toString().slice(-5);
+            const newPatient = {
+                id: id,
+                name: document.getElementById('regName').value.trim(),
+                phone: document.getElementById('regPhone').value.trim(),
+                age: parseInt(document.getElementById('regAge').value),
+                gender: document.getElementById('regGender').value,
+                category: document.getElementById('regCategory').value,
+                created_at: new Date().toISOString()
+            };
+
+            await db.ref('patients/' + id).set(newPatient);
+
+            closeRegisterModal();
+            document.getElementById('registerForm').reset();
+        }
+
+        /* LISTEN DAFTAR PASIEN & REFRESH REKAP HARIAN */
+        function listenPatients() {
+            db.ref('patients').on('value', snapshot => {
+                const data = snapshot.val();
+                patientsList = [];
+                if (data) {
+                    Object.keys(data).forEach(key => {
+                        patientsList.push(data[key]);
+                    });
+                }
+
+                if (activePatient) {
+                    const updated = patientsList.find(p => p.id === activePatient.id);
+                    if (updated) {
+                        activePatient = updated;
+                        renderDailyHistory();
+                    }
+                }
+
+                renderPatientTable();
+            });
+        }
+
+        /* RENDER TABEL PASIEN DENGAN NOMOR HP & NAMA PASIEN */
+        function renderPatientTable() {
+            const tbody = document.getElementById('patientTableBody');
+            const searchVal = document.getElementById('searchInput').value.toLowerCase();
+            document.getElementById('statTotalPatients').innerText = patientsList.length;
+
+            tbody.innerHTML = '';
+
+            let filtered = patientsList.filter(p => 
+                p.name.toLowerCase().includes(searchVal) || 
+                (p.phone && p.phone.includes(searchVal))
+            );
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center py-8 text-gray-500">
+                            <i class="fa-solid fa-folder-open text-xl mb-1"></i>
+                            <p>Belum ada data pasien tersimpan</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            const todayKey = new Date().toISOString().split('T')[0];
+
+            filtered.forEach(p => {
+                let todaySpo2 = '-';
+                let todayBpm = '-';
+
+                if (p.daily_history && p.daily_history[todayKey]) {
+                    todaySpo2 = p.daily_history[todayKey].avg_spo2 + '%';
+                    todayBpm = p.daily_history[todayKey].avg_bpm;
+                }
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-800/40 transition border-b border-gray-800/50";
+                tr.innerHTML = `
+                    <td class="p-3.5 font-semibold text-white flex items-center gap-2.5">
+                        <div class="w-7 h-7 rounded-full bg-accentPurple/20 border border-accentPurple/40 text-accentPurple flex items-center justify-center font-bold text-xs">
+                            ${p.name.charAt(0)}
+                        </div>
+                        <div>
+                            <div>${p.name}</div>
+                            <div class="text-[10px] text-gray-500 font-mono">ID: ${p.id}</div>
+                        </div>
+                    </td>
+                    <td class="p-3.5 font-mono text-accentCyan">${p.phone || '-'}</td>
+                    <td class="p-3.5">${p.age} Thn / ${p.gender}</td>
+                    <td class="p-3.5">
+                        <span class="px-2 py-0.5 rounded text-[10px] bg-gray-800 text-gray-300 border border-gray-700">${p.category || 'Umum'}</span>
+                    </td>
+                    <td class="p-3.5 text-center font-bold text-emerald-400">${todaySpo2}</td>
+                    <td class="p-3.5 text-center font-bold text-accentCyan">${todayBpm}</td>
+                    <td class="p-3.5 text-center">
+                        <button onclick="openPatientProfile('${p.id}')" class="px-3 py-1.5 bg-accentPurple/20 hover:bg-accentPurple text-accentPurple hover:text-white rounded-xl text-xs font-semibold transition border border-accentPurple/30 flex items-center gap-1.5 mx-auto shadow">
+                            <i class="fa-solid fa-folder-open"></i>
+                            <span>Buka Profil & Ukur</span>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        /* BUKA PROFIL PASIEN & KIRIM DOKUMEN AKTIF KE FIREBASE */
+        async function openPatientProfile(patientId) {
+            activePatient = patientsList.find(p => p.id === patientId);
+            if (!activePatient) return;
+
+            document.getElementById('profName').innerText = activePatient.name;
+            document.getElementById('profAvatar').innerText = activePatient.name.charAt(0);
+            document.getElementById('profPhoneBadge').innerText = activePatient.phone || '-';
+            document.getElementById('profMeta').innerText = `Umur: ${activePatient.age} Thn | JK: ${activePatient.gender} | Kategori: ${activePatient.category}`;
+
+            // Set Pasien Aktif di Firebase
+            await db.ref('system').update({
+                active_patient_id: activePatient.id,
+                active_patient_name: activePatient.name
+            });
+
+            renderDailyHistory();
+            document.getElementById('profileModal').classList.remove('hidden');
+        }
+
+        /* TUTUP MODAL & CLEAR PASIEN AKTIF DI FIREBASE */
+        async function closeProfileModal() {
+            document.getElementById('profileModal').classList.add('hidden');
+            activePatient = null;
+            resetWebReadingsToZero();
+
+            // Set system ke kosong agar ESP32 kembali ke Standby & reset nama pasien
+            if (db) {
+                await db.ref('system').update({
+                    active_patient_id: "",
+                    active_patient_name: "Belum Dipilih"
+                });
+            }
+        }
+
+        /* LISTEN REALTIME SENSORS & RESET KE TITIK 0 */
+        function listenLiveReadings() {
+            db.ref('live_readings').on('value', snapshot => {
+                const data = snapshot.val();
+                if (!data) return;
+
+                // 1. Jika belum memilih pasien / status alat standby -> Reset Web ke 0
+                if (!activePatient || !data.is_measuring || data.patient_id !== activePatient.id) {
+                    resetWebReadingsToZero();
+                    return;
+                }
+
+                // 2. Jika pasien aktif & jari terdeteksi
+                if (data.finger_present && data.spo2 > 0) {
+                    document.getElementById('liveSpo2Val').innerText = data.spo2;
+                    document.getElementById('liveBpmVal').innerText = data.bpm;
+                    document.getElementById('liveFingerBadge').innerText = "Jari Terdeteksi - Mengukur...";
+                    document.getElementById('liveFingerBadge').className = "px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold";
+
+                    // Update Rata-Rata Hari Ini
+                    updateDailyAverageInFirebase(data.spo2, data.bpm);
+                } else {
+                    // 3. Jika pasien aktif TAPI belum ada jari -> Kembali ke titik 0
+                    resetWebReadingsToZero();
+                    document.getElementById('liveFingerBadge').innerText = "Tempelkan Jari Anda pada Sensor!";
+                    document.getElementById('liveFingerBadge').className = "px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-semibold";
+                }
+            });
+        }
+
+        /* RESET NILAI WEB KE 0 */
+        function resetWebReadingsToZero() {
+            const spo2El = document.getElementById('liveSpo2Val');
+            const bpmEl = document.getElementById('liveBpmVal');
+            
+            if (spo2El) spo2El.innerText = "-.-";
+            if (bpmEl) bpmEl.innerText = "-.-";
+        }
+
+        /* UPDATE AGREGASI RATA-RATA HARIAN */
+        async function updateDailyAverageInFirebase(spo2, bpm) {
+            if (!activePatient) return;
+
+            const todayKey = new Date().toISOString().split('T')[0];
+            const ref = db.ref(`patients/${activePatient.id}/daily_history/${todayKey}`);
+
+            const snapshot = await ref.once('value');
+            let current = snapshot.val() || {
+                date: todayKey,
+                sum_spo2: 0,
+                sum_bpm: 0,
+                total_samples: 0
+            };
+
+            current.sum_spo2 += spo2;
+            current.sum_bpm += bpm;
+            current.total_samples += 1;
+            current.avg_spo2 = Math.round(current.sum_spo2 / current.total_samples);
+            current.avg_bpm = Math.round(current.sum_bpm / current.total_samples);
+            current.status = (current.avg_spo2 < 95 || current.avg_bpm > 100) ? 'PERHATIAN' : 'NORMAL';
+
+            await ref.set(current);
+        }
+
+        /* RENDER GRAFIK BAR & TABEL RIWAYAT HARIAN */
+        function renderDailyHistory() {
+            if (!activePatient) return;
+
+            const tbody = document.getElementById('dailyHistoryTableBody');
+            tbody.innerHTML = '';
+
+            const history = activePatient.daily_history || {};
+            const dates = Object.keys(history).sort();
+
+            const chartLabels = [];
+            const chartSpo2Data = [];
+            const chartBpmData = [];
+
+            if (dates.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-gray-500">Belum ada riwayat pengukuran harian</td>
+                    </tr>
+                `;
+            } else {
+                dates.forEach(dateKey => {
+                    const item = history[dateKey];
+                    chartLabels.push(item.date);
+                    chartSpo2Data.push(item.avg_spo2);
+                    chartBpmData.push(item.avg_bpm);
+
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-gray-800/50";
+                    tr.innerHTML = `
+                        <td class="p-2.5 font-mono text-white">${item.date}</td>
+                        <td class="p-2.5 text-center font-bold text-emerald-400">${item.avg_spo2}%</td>
+                        <td class="p-2.5 text-center font-bold text-accentCyan">${item.avg_bpm}</td>
+                        <td class="p-2.5 text-center text-gray-400">${item.total_samples} Sampel</td>
+                        <td class="p-2.5 text-center">
+                            <span class="px-2 py-0.5 rounded text-[9px] font-bold ${item.status === 'NORMAL' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}">${item.status}</span>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            // Update Chart.js
+            dailyChartInstance.data.labels = chartLabels;
+            dailyChartInstance.data.datasets[0].data = chartSpo2Data;
+            dailyChartInstance.data.datasets[1].data = chartBpmData;
+            dailyChartInstance.update();
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('dailyChart').getContext('2d');
+            dailyChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Rata-Rata SpO2 (%)',
+                            data: [],
+                            backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                            borderColor: '#10b981',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Rata-Rata BPM',
+                            data: [],
+                            backgroundColor: 'rgba(6, 182, 212, 0.7)',
+                            borderColor: '#06b6d4',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { grid: { color: '#1f2937' }, ticks: { color: '#9ca3af', font: { size: 10 } } },
+                        y: { grid: { color: '#1f2937' }, ticks: { color: '#9ca3af', font: { size: 10 } }, min: 40, max: 120 }
+                    },
+                    plugins: { legend: { labels: { color: '#d1d5db', font: { size: 11 } } } }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

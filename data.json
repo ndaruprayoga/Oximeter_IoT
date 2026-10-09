@@ -1,0 +1,36 @@
+{
+  "system": {
+    "active_patient_id": "PST-1001",
+    "active_patient_name": "Budi Santoso",
+    "is_measuring": false
+  },
+  "patients": {
+    "PST-1001": {
+      "id": "PST-1001",
+      "name": "Budi Santoso",
+      "phone": "081234567890",
+      "age": 48,
+      "gender": "L",
+      "category": "Rawat Jalan",
+      "daily_history": {
+        "2026-10-09": {
+          "date": "2026-10-09",
+          "avg_spo2": 97,
+          "avg_bpm": 76,
+          "total_samples": 25,
+          "sum_spo2": 2425,
+          "sum_bpm": 1900,
+          "status": "NORMAL"
+        }
+      }
+    }
+  },
+  "live_readings": {
+    "spo2": 98,
+    "bpm": 75,
+    "finger_present": true,
+    "is_measuring": true,
+    "patient_id": "PST-1001",
+    "timestamp": 1791422400000
+  }
+}
