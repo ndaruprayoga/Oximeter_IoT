@@ -13,13 +13,15 @@
             theme: {
                 extend: {
                     colors: {
-                        darkBg: '#0b0f19',
-                        darkCard: '#131b2e',
-                        darkCardHeader: '#1a243b',
-                        accentPurple: '#7c3aed',
-                        accentCyan: '#06b6d4',
-                        accentGreen: '#10b981',
-                        accentRed: '#ef4444'
+                        textPrimary: '#2D3142',   // Deep Charcoal (Teks utama)
+                        textSecondary: '#578EF5', // Muted Gray (Subtitle / Keterangan)
+                        darkBg: '#EBE9E0',
+                        darkCard: '#65D0F4',
+                        darkCardHeader: '#f9f3e5',
+                        accentPurple: '#578EF5',
+                        accentCyan: '#FFFFFF',
+                        accentGreen: '#FFFFFF',
+                        accentRed: '#FFFFFF'
                     }
                 }
             }
@@ -47,9 +49,9 @@
             <div>
                 <h1 class="font-bold text-lg text-white tracking-wide flex items-center gap-2">
                     Oximeter Hub
-                    <span id="firebaseStatusBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 font-semibold">Menghubungkan...</span>
+                    <span id="firebaseStatusBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-darkBg-400 border border-amber-500/30 font-semibold">Menghubungkan...</span>
                 </h1>
-                <p class="text-xs text-gray-400">Sistem Pemantauan Saturasi Oksigen & Detak Jantung Pasien</p>
+                <p class="text-xs text-white">Sistem Pemantauan Saturasi Oksigen & Detak Jantung Pasien</p>
             </div>
         </div>
 
@@ -58,27 +60,27 @@
                 <div class="w-7 h-7 rounded-full bg-accentPurple flex items-center justify-center text-xs font-bold text-white shadow">DR</div>
                 <div class="text-left hidden sm:block">
                     <div class="text-xs font-semibold text-white leading-tight">Dr. Ladesh</div>
-                    <div class="text-[10px] text-gray-400">Dokter Penanggung Jawab</div>
+                    <div class="text-[10px] text-white">Dokter Penanggung Jawab</div>
                 </div>
             </div>
         </div>
     </header>
 
-    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
+    <main class="flex-1 max-w-screen-2xl w-full mx-auto p-4 sm:p-6 space-y-6">
 
         <!-- Action Header -->
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-                <h2 class="text-2xl font-bold text-white tracking-tight">Daftar Pasien</h2>
-                <p class="text-xs text-gray-400">Pilih pasien untuk membuka profil dan mengaktifkan pengukuran pada alat ESP32</p>
+                <h2 class="text-2xl font-bold text-darkCard tracking-tight">Daftar Pasien</h2>
+                <p class="text-xs text-darkCard">Pilih pasien untuk membuka profil dan mengaktifkan pengukuran pada alat ESP32</p>
             </div>
 
             <div class="flex items-center gap-3 w-full sm:w-auto">
                 <div class="px-3.5 py-2 rounded-xl bg-darkCard border border-gray-800 flex items-center gap-2 text-xs">
-                    <span class="text-gray-400">Total Pasien</span>
+                    <span class="text-white">Total Pasien</span>
                     <span id="statTotalPatients" class="font-bold text-white px-2 py-0.5 rounded bg-gray-800 text-sm">0</span>
                 </div>
-                <button onclick="openRegisterModal()" class="flex-1 sm:flex-initial px-4 py-2 bg-accentPurple hover:bg-purple-600 text-white rounded-xl text-xs font-semibold shadow-lg shadow-accentPurple/25 transition flex items-center justify-center gap-2">
+                <button onclick="openRegisterModal()" class="flex-1 sm:flex-initial px-4 py-2 bg-accentPurple hover:bg-blue-600 text-white rounded-xl text-xs font-semibold shadow-lg shadow-accentPurple/25 transition flex items-center justify-center gap-2">
                     <i class="fa-solid fa-user-plus"></i>
                     <span>Registrasi Pasien Baru</span>
                 </button>
@@ -90,7 +92,7 @@
             <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
                 <div class="relative w-full sm:w-72">
                     <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-xs"></i>
-                    <input type="text" id="searchInput" oninput="renderPatientTable()" placeholder="Cari nama atau no. hp pasien..." class="w-full bg-gray-900 border border-gray-800 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-accentPurple transition">
+                    <input type="text" id="searchInput" oninput="renderPatientTable()" placeholder="Cari nama atau no. hp pasien..." class="w-full bg-darkCardHeader border border-gray-800 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-accentPurple transition">
                 </div>
             </div>
 
@@ -136,22 +138,22 @@
 
             <form id="registerForm" onsubmit="handleRegisterPatient(event)" class="space-y-3.5 text-xs">
                 <div>
-                    <label class="block text-gray-400 font-medium mb-1">Nama Lengkap Pasien *</label>
+                    <label class="block text-white font-medium mb-1">Nama Lengkap Pasien *</label>
                     <input type="text" id="regName" required placeholder="Contoh: Budi Santoso" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-accentPurple transition">
                 </div>
 
                 <div>
-                    <label class="block text-gray-400 font-medium mb-1">Nomor HP / WhatsApp *</label>
+                    <label class="block text-white font-medium mb-1">Nomor HP / WhatsApp *</label>
                     <input type="text" id="regPhone" required placeholder="Contoh: 081234567890" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-accentPurple transition">
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-gray-400 font-medium mb-1">Umur (Tahun) *</label>
+                        <label class="block text-white font-medium mb-1">Umur (Tahun) *</label>
                         <input type="number" id="regAge" required min="1" max="120" placeholder="48" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-accentPurple transition">
                     </div>
                     <div>
-                        <label class="block text-gray-400 font-medium mb-1">Jenis Kelamin *</label>
+                        <label class="block text-white font-medium mb-1">Jenis Kelamin *</label>
                         <select id="regGender" required class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-accentPurple transition">
                             <option value="L">Laki-Laki (L)</option>
                             <option value="P">Perempuan (P)</option>
@@ -160,7 +162,7 @@
                 </div>
 
                 <div>
-                    <label class="block text-gray-400 font-medium mb-1">Kategori Pasien</label>
+                    <label class="block text-white font-medium mb-1">Kategori Pasien</label>
                     <select id="regCategory" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-accentPurple transition">
                         <option value="Rawat Inap">Rawat Inap</option>
                         <option value="Rawat Jalan">Rawat Jalan</option>
@@ -171,7 +173,7 @@
 
                 <div class="flex items-center justify-end gap-3 pt-3 border-t border-gray-800">
                     <button type="button" onclick="closeRegisterModal()" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl font-medium transition">Batal</button>
-                    <button type="submit" id="btnSubmitReg" class="px-4 py-2 bg-accentPurple hover:bg-purple-600 text-white rounded-xl font-semibold flex items-center gap-1.5 transition shadow-lg shadow-accentPurple/25">
+                    <button type="submit" id="btnSubmitReg" class="px-4 py-2 bg-accentPurple hover:bg-blue-600 text-white rounded-xl font-semibold flex items-center gap-1.5 transition shadow-lg shadow-accentPurple/25">
                         <i class="fa-solid fa-floppy-disk"></i>
                         <span>Simpan Pasien</span>
                     </button>
@@ -187,7 +189,7 @@
             <!-- Header Modal Pasien -->
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-800 pb-4">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-accentPurple/20 border border-accentPurple/40 flex items-center justify-center text-accentPurple text-lg font-bold">
+                    <div class="w-10 h-10 rounded-xl bg-white border border-white flex items-center justify-center text-accentPurple text-lg font-bold">
                         <span id="profAvatar">B</span>
                     </div>
                     <div>
@@ -195,7 +197,7 @@
                             <h3 id="profName" class="text-lg font-bold text-white">Budi Santoso</h3>
                             <span id="profPhoneBadge" class="px-2 py-0.5 rounded bg-gray-800 text-accentCyan border border-accentCyan/30 text-[10px] font-mono">081234567890</span>
                         </div>
-                        <p id="profMeta" class="text-xs text-gray-400">Umur: 48 Thn | JK: L | Kategori: Rawat Jalan</p>
+                        <p id="profMeta" class="text-xs text-white">Umur: 48 Thn | JK: L | Kategori: Rawat Jalan</p>
                     </div>
                 </div>
 
@@ -314,7 +316,7 @@
                 db = firebase.database();
 
                 const statusBadge = document.getElementById('firebaseStatusBadge');
-                statusBadge.className = "text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-semibold";
+                statusBadge.className = "text-[10px] px-2 py-0.5 rounded-full bg-darkCard-500/10 text-darkBg-400 border border-darkBg-500/30 font-semibold";
                 statusBadge.innerText = "Firebase Terhubung";
 
                 listenPatients();
@@ -417,7 +419,7 @@
                 tr.className = "hover:bg-gray-800/40 transition border-b border-gray-800/50";
                 tr.innerHTML = `
                     <td class="p-3.5 font-semibold text-white flex items-center gap-2.5">
-                        <div class="w-7 h-7 rounded-full bg-accentPurple/20 border border-accentPurple/40 text-accentPurple flex items-center justify-center font-bold text-xs">
+                        <div class="w-7 h-7 rounded-full bg-white border border-accentPurple/40 text-accentPurple flex items-center justify-center font-bold text-xs">
                             ${p.name.charAt(0)}
                         </div>
                         <div>
@@ -426,11 +428,11 @@
                         </div>
                     </td>
                     <td class="p-3.5 font-mono text-accentCyan">${p.phone || '-'}</td>
-                    <td class="p-3.5">${p.age} Thn / ${p.gender}</td>
+                    <td class="p-3.5 text-white">${p.age} Thn / ${p.gender}</td>
                     <td class="p-3.5">
                         <span class="px-2 py-0.5 rounded text-[10px] bg-gray-800 text-gray-300 border border-gray-700">${p.category || 'Umum'}</span>
                     </td>
-                    <td class="p-3.5 text-center font-bold text-emerald-400">${todaySpo2}</td>
+                    <td class="p-3.5 text-center font-bold text-accentCyan">${todaySpo2}</td>
                     <td class="p-3.5 text-center font-bold text-accentCyan">${todayBpm}</td>
                     <td class="p-3.5 text-center">
                         <button onclick="openPatientProfile('${p.id}')" class="px-3 py-1.5 bg-accentPurple/20 hover:bg-accentPurple text-accentPurple hover:text-white rounded-xl text-xs font-semibold transition border border-accentPurple/30 flex items-center gap-1.5 mx-auto shadow">
