@@ -80,6 +80,12 @@
                     <span class="text-white">Total Pasien</span>
                     <span id="statTotalPatients" class="font-bold text-white px-2 py-0.5 rounded bg-gray-800 text-sm">0</span>
                 </div>
+                <!-- Tombol Pengaturan Wi-Fi ESP32 -->
+                <button onclick="openWifiModal()" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl text-xs font-semibold shadow-lg transition flex items-center justify-center gap-2 border border-gray-700">
+                    <i class="fa-solid fa-wifi text-accentPurple"></i>
+                    <span>Pengaturan Wi-Fi</span>
+                </button>
+                <!-- Tombol Registrasi Pasien Baru -->
                 <button onclick="openRegisterModal()" class="flex-1 sm:flex-initial px-4 py-2 bg-accentPurple hover:bg-blue-600 text-white rounded-xl text-xs font-semibold shadow-lg shadow-accentPurple/25 transition flex items-center justify-center gap-2">
                     <i class="fa-solid fa-user-plus"></i>
                     <span>Registrasi Pasien Baru</span>
@@ -122,6 +128,46 @@
             </div>
         </div>
     </main>
+
+    <!-- Modal Pengaturan Wi-Fi ESP32 -->
+    <div id="wifiModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-darkCard border border-gray-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-wifi text-accentPurple"></i>
+                    <span>Pengaturan Wi-Fi ESP32</span>
+                </h3>
+                <button onclick="closeWifiModal()" class="text-gray-400 hover:text-white transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <form id="wifiForm" onsubmit="saveWifiConfig(event)" class="space-y-3.5 text-xs">
+                <div>
+                    <label class="block text-white font-medium mb-1">Nama Wi-Fi (SSID) *</label>
+                    <input type="text" id="wifiSsid" required placeholder="Contoh: WiFi_Rumah_Sakit" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-accentPurple transition">
+                </div>
+
+                <div>
+                    <label class="block text-white font-medium mb-1">Kata Sandi (Password) *</label>
+                    <input type="password" id="wifiPassword" placeholder="Masukkan password Wi-Fi" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-accentPurple transition">
+                </div>
+
+                <div class="p-3 bg-gray-900/80 border border-gray-800 rounded-xl text-[11px] text-gray-300">
+                    <i class="fa-solid fa-circle-info text-accentPurple mr-1"></i>
+                    <span>Data SSID & Password akan disimpan ke Firebase node <code>/wifi_config</code> agar dibaca oleh ESP32.</span>
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-3 border-t border-gray-800">
+                    <button type="button" onclick="closeWifiModal()" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl font-medium transition">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-accentPurple hover:bg-blue-600 text-white rounded-xl font-semibold flex items-center gap-1.5 transition shadow-lg shadow-accentPurple/25">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>Simpan Wi-Fi</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- Modal Registrasi Pasien Baru -->
     <div id="registerModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
@@ -306,6 +352,45 @@
             if (key) localStorage.setItem('fb_apiKey', key);
 
             location.reload();
+        }
+
+        /* PENGATURAN WIFI ESP32 */
+        function openWifiModal() {
+            if (db) {
+                db.ref('wifi_config').once('value', snapshot => {
+                    const data = snapshot.val();
+                    if (data) {
+                        document.getElementById('wifiSsid').value = data.ssid || '';
+                        document.getElementById('wifiPassword').value = data.password || '';
+                    }
+                });
+            }
+            document.getElementById('wifiModal').classList.remove('hidden');
+        }
+
+        function closeWifiModal() {
+            document.getElementById('wifiModal').classList.add('hidden');
+        }
+
+        async function saveWifiConfig(e) {
+            e.preventDefault();
+            if (!db) return alert("Firebase belum terhubung!");
+
+            const ssid = document.getElementById('wifiSsid').value.trim();
+            const pass = document.getElementById('wifiPassword').value;
+
+            try {
+                await db.ref('wifi_config').set({
+                    ssid: ssid,
+                    password: pass,
+                    updated_at: new Date().toISOString()
+                });
+                alert("Konfigurasi Wi-Fi berhasil disimpan ke Firebase!");
+                closeWifiModal();
+            } catch (err) {
+                console.error("Gagal menyimpan Wi-Fi:", err);
+                alert("Gagal menyimpan data ke Firebase.");
+            }
         }
 
         function initFirebase() {
