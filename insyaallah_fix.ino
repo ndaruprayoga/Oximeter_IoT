@@ -11,14 +11,22 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <Wire.h>
+#include <Preferences.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include "MAX30105.h"
 #include "spo2_algorithm.h"
 
-// ------------------- KONFIGURASI WIFI & FIREBASE -------------------
-const char* WIFI_SSID     = "Blackbull";
-const char* WIFI_PASSWORD = "12345678";
+// ------------------- MEMORI INTERNAL & FIREBASE -------------------
+Preferences pref;
+
+// Variabel Wi-Fi Dinamis (Diisi otomatis dari memori/Firebase)
+String wifiSsid     = "";
+String wifiPassword = "";
+
+// Wi-Fi Default Pertama Kali (Cadangan jika memori kosong)
+const char* DEFAULT_SSID = "Blackbull";
+const char* DEFAULT_PASS = "12345678";
 
 const String FIREBASE_HOST = "https://lexshin-project-default-rtdb.asia-southeast1.firebasedatabase.app";
 const String FIREBASE_AUTH = ""; 
@@ -54,18 +62,18 @@ volatile bool  isMeasuring   = false;
 String activePatientId   = "";
 String activePatientName = "Belum Dipilih";
 
-// ------------------- GRAFIK GELOMBANG (LOGIKA ORIGINAL) -------------------
-#define WAVE_X_START 65     // Posisi awal horizontal
-#define WAVE_WIDTH   60     // Lebar grafik
-#define WAVE_Y_TOP   16     // Titik puncak paling atas grafik
-#define WAVE_HEIGHT  40     // Tinggi grafik (40px)
+// ------------------- GRAFIK GELOMBANG -------------------
+#define WAVE_X_START 65     
+#define WAVE_WIDTH   60     
+#define WAVE_Y_TOP   16     
+#define WAVE_HEIGHT  40     
 
 uint32_t waveBuffer[WAVE_WIDTH];
 int waveBufIndex = 0;
 int waveDecimateCounter = 0;
-const int WAVE_DECIMATE = 5; // Ambil 1 dari 5 sampel mentah
+const int WAVE_DECIMATE = 5; 
 
-const unsigned long DISPLAY_REFRESH_MS = 60; // Refresh rate ~16 FPS
+const unsigned long DISPLAY_REFRESH_MS = 60; 
 unsigned long lastDisplayRefresh = 0;
 
 TaskHandle_t TaskFirebaseH;
@@ -82,6 +90,7 @@ void hitungSpO2DanBPM();
 void refreshDisplayJikaWaktunya();
 void refreshDisplayStandby();
 void bacaPasienAktifDariFirebase();
+void cekPerubahanWifiFirebase();
 void kirimLiveReadingsFirebase(int spo2Val, int bpmVal, bool finger);
 void taskFirebase(void * pvParameters);
 
@@ -91,16 +100,30 @@ void setup() {
 
   // Inisialisasi I2C pada Pin SDA=18, SCL=19
   Wire.begin(18, 19);
-
   setupOLED();
-  tampilkanPesan("Menghubungkan WiFi", WIFI_SSID, "Mohon tunggu...");
 
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  while (WiFi.status() != WL_CONNECTED) {
+  // 1. Baca Wi-Fi tersimpan di memori internal ESP32
+  pref.begin("wifi_config", false);
+  wifiSsid     = pref.getString("ssid", DEFAULT_SSID);
+  wifiPassword = pref.getString("pass", DEFAULT_PASS);
+  pref.end();
+
+  tampilkanPesan("Menghubungkan WiFi", wifiSsid.c_str(), "Mohon tunggu...");
+
+  // 2. Hubungkan ke Wi-Fi
+  WiFi.begin(wifiSsid.c_str(), wifiPassword.c_str());
+  int retry = 0;
+  while (WiFi.status() != WL_CONNECTED && retry < 20) {
     delay(500);
     Serial.print(".");
+    retry++;
   }
-  Serial.println("\nWiFi Terhubung! IP: " + WiFi.localIP().toString());
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nWiFi Terhubung! IP: " + WiFi.localIP().toString());
+  } else {
+    Serial.println("\nGagal terhubung ke Wi-Fi simpanan.");
+  }
 
   setupSensor();
 
@@ -132,19 +155,23 @@ void loop() {
 }
 
 // =====================================================================
-// CORE 0 (taskFirebase): Komunikasi Firebase Tanpa Mengganggu Sensor
+// CORE 0 (taskFirebase): Komunikasi Firebase & Cek Wi-Fi Baru
 // =====================================================================
 void taskFirebase(void * pvParameters) {
   for (;;) {
     if (WiFi.status() == WL_CONNECTED) {
+      // Cek apakah ada perubahan Wi-Fi dari Web Dashboard
+      cekPerubahanWifiFirebase();
+
+      // Cek pasien aktif
       bacaPasienAktifDariFirebase();
 
-      // Selalu kirim status ke Firebase saat mode ukur aktif (termasuk nilai 0 saat jari dilepas)
+      // Kirim data sensor jika mode ukur aktif
       if (isMeasuring) {
         kirimLiveReadingsFirebase(lastSpo2, lastBpm, fingerPresent);
       }
     }
-    vTaskDelay(2000 / portTICK_PERIOD_MS); // Kirim data tiap 2 detik
+    vTaskDelay(2000 / portTICK_PERIOD_MS); // Run tiap 2 detik
   }
 }
 
@@ -233,7 +260,6 @@ void tampilkanHasilOLED(int spo2Value, int bpmValue, float piValue, bool isAbnor
   display.clearDisplay();
   display.setTextColor(SSD1306_WHITE);
 
-  // ---- %SpO2 ----
   display.setTextSize(1);
   display.setCursor(0, 0);
   display.print("%SpO2");
@@ -241,7 +267,6 @@ void tampilkanHasilOLED(int spo2Value, int bpmValue, float piValue, bool isAbnor
   display.setCursor(0, 8);
   display.print(spo2Value);
 
-  // ---- PRbpm ----
   display.setTextSize(1);
   display.setCursor(0, 24);
   display.print("PRbpm");
@@ -249,23 +274,17 @@ void tampilkanHasilOLED(int spo2Value, int bpmValue, float piValue, bool isAbnor
   display.setCursor(0, 32);
   display.print(bpmValue);
 
-  // ---- PI% ----
   display.setTextSize(1);
   display.setCursor(0, 48);
   display.print("PI:");
   display.print(piValue, 1);
   display.print("%");
 
-  // ---- Status ----
   display.setCursor(0, 56);
   display.print(isAbnormal ? "Status:LOW!" : "Status:OK");
 
-  // Garis Pemisah Vertikal
   display.drawLine(WAVE_X_START - 3, 0, WAVE_X_START - 3, SCREEN_HEIGHT - 1, SSD1306_WHITE);
-
-  // Grafik Gelombang
   gambarWaveform();
-
   display.display();
 }
 
@@ -311,7 +330,6 @@ void hitungSpO2DanBPM() {
 
   fingerPresent = (irMean > 50000);
 
-  // Jika tidak ada jari, reset nilai variabel ke 0
   if (!fingerPresent) {
     lastSpo2 = 0;
     lastBpm = 0;
@@ -337,7 +355,6 @@ void refreshDisplayJikaWaktunya() {
   if (millis() - lastDisplayRefresh < DISPLAY_REFRESH_MS) return;
   lastDisplayRefresh = millis();
 
-  // Tampilan khusus jika pasien sudah dipilih tetapi JARI BELUM DITEMPEL
   if (!fingerPresent) {
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
@@ -363,6 +380,54 @@ void refreshDisplayJikaWaktunya() {
 }
 
 // =====================================================================
+// PEMANTAUAN CONFIG WIFI DARI WEB DASHBOARD
+// =====================================================================
+void cekPerubahanWifiFirebase() {
+  HTTPClient http;
+  String url = FIREBASE_HOST + "/wifi_config.json";
+  if (FIREBASE_AUTH != "") url += "?auth=" + FIREBASE_AUTH;
+
+  http.begin(url);
+  int httpCode = http.GET();
+
+  if (httpCode == 200) {
+    String payload = http.getString();
+
+    String newSsid = "";
+    String newPass = "";
+
+    // Parse JSON sederhana untuk 'ssid'
+    int ssidIdx = payload.indexOf("\"ssid\":\"");
+    if (ssidIdx != -1) {
+      int endIdx = payload.indexOf("\"", ssidIdx + 8);
+      newSsid = payload.substring(ssidIdx + 8, endIdx);
+    }
+
+    // Parse JSON sederhana untuk 'password'
+    int passIdx = payload.indexOf("\"password\":\"");
+    if (passIdx != -1) {
+      int endIdx = payload.indexOf("\"", passIdx + 12);
+      newPass = payload.substring(passIdx + 12, endIdx);
+    }
+
+    // Jika ditemukan SSID baru yang berbeda dari SSID/Password aktif
+    if (newSsid != "" && (newSsid != wifiSsid || newPass != wifiPassword)) {
+      Serial.println("\nPerubahan Wi-Fi terdeteksi dari Web Dashboard!");
+      
+      // Simpan ke memori NVS ESP32
+      pref.begin("wifi_config", false);
+      pref.putString("ssid", newSsid);
+      pref.putString("pass", newPass);
+      pref.end();
+
+      tampilkanPesan("WiFi Diperbarui!", "Restarting ESP32...", "Menghubungkan...");
+      delay(2000);
+      ESP.restart(); // Restart untuk konek ke jaringan baru
+    }
+  }
+  http.end();
+}
+
 void bacaPasienAktifDariFirebase() {
   HTTPClient http;
   String url = FIREBASE_HOST + "/system.json";
@@ -411,7 +476,6 @@ void kirimLiveReadingsFirebase(int spo2Val, int bpmVal, bool finger) {
   http.end();
 }
 
-// Tampilan STANDBY saat belum ada pasien yang dipilih dari Web
 void refreshDisplayStandby() {
   static unsigned long lastAnim = 0;
   if (millis() - lastAnim < 1000) return;
